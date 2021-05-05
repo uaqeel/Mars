@@ -32,6 +32,11 @@ namespace Mars
         public SortedDictionary<DateTime, Candle> ImpliedVolatilityCandles { get; set; }
         public Dictionary<string, Market> Markets { get; set; }
 
+        public Market this[string i]
+        {
+            get => Markets[i];
+        }
+
         public DeribitClient(string token, string basePath)
         {
             Token = token;
@@ -44,6 +49,7 @@ namespace Mars
             TakerCommissions = new Dictionary<string, double>();
             HistoricalVolatilities = new SortedDictionary<DateTime, double>();
             ImpliedVolatilityCandles = new SortedDictionary<DateTime, Candle>();
+            Markets = new Dictionary<string, Market>();
 
             Initialise();
 
@@ -65,7 +71,23 @@ namespace Mars
             tokenPrice = (double)(indexPrice["result"][Token]);
         }
 
-        internal void UpdateData(List<string> futures, List<string> options)
+        internal void AddContracts(List<Instrument> contracts)
+        {
+            foreach (var i in contracts)
+            {
+                bool isOption = i.Kind == Instrument.KindEnum.Option;
+                if (!Markets.ContainsKey(i.InstrumentName))
+                {
+                    if (isOption)
+                        Markets[i.InstrumentName] = new OptionMarket(JObject.Parse(ApiClient.PublicGetOrderBookGet(i.InstrumentName, 1).ToString())["result"] as JObject);
+                    else
+                        Markets[i.InstrumentName] = new Market(JObject.Parse(ApiClient.PublicGetOrderBookGet(i.InstrumentName, 1).ToString())["result"] as JObject);
+                }
+            }
+        }
+
+            // todo - async this thing
+        internal void UpdateData()
         {
             var indexPrice = JObject.Parse(ApiClient.PublicGetIndexGet(Token).ToString());
             tokenPrice = (double)(indexPrice["result"][Token]);
@@ -87,19 +109,15 @@ namespace Mars
                                                                                                                      (double)ja[4]);
             }
 
-            Parallel.ForEach(futures, future =>
+            Parallel.ForEach(Markets, market =>
             {
-                Market mm = new Market(JObject.Parse(ApiClient.PublicGetOrderBookGet(future, 1).ToString())["result"] as JObject);
-                Markets.Add(future, mm);
+                bool isOption = Instruments[market.Key].Kind == Instrument.KindEnum.Option;
+
+                if (isOption)
+                    Markets[market.Key] = new OptionMarket(JObject.Parse(ApiClient.PublicGetOrderBookGet(market.Key, 1).ToString())["result"] as JObject);
+                else
+                    Markets[market.Key] = new Market(JObject.Parse(ApiClient.PublicGetOrderBookGet(market.Key, 1).ToString())["result"] as JObject);
             });
-
-            Parallel.ForEach(options, option =>
-            {
-                OptionMarket mm = new OptionMarket(JObject.Parse(ApiClient.PublicGetOrderBookGet(option, 1).ToString())["result"] as JObject);
-                Markets.Add(option, mm);
-            });
-
-
         }
     }
 
@@ -167,7 +185,7 @@ namespace Mars
 
         public OptionMarket(JObject JsonObject) : base(JsonObject)
         {
-            UnderlyingRefPrice = (double)JsonObject["greeks"]["underlying_price"];
+            UnderlyingRefPrice = (double)JsonObject["underlying_price"];
             Delta = (double)JsonObject["greeks"]["delta"];
             Gamma = (double)JsonObject["greeks"]["gamma"];
             Theta = (double)JsonObject["greeks"]["theta"];

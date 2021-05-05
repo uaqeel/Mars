@@ -31,12 +31,23 @@ namespace Mars
             MaxInvestedPercentage = maxInvestedPercentage;
             DeltaLimit = deltaLimit;
 
-            SelectOptionSet();
+            // Decide which options to track and buy them.
+            Tuple<Instrument, Instrument> options = SelectOptions();
+            double putAsk = MarketDataClient[options.Item1.InstrumentName].Ask;
+            double putDelta = (MarketDataClient[options.Item1.InstrumentName] as OptionMarket).Delta;
+            double callAsk = MarketDataClient[options.Item2.InstrumentName].Ask;
+            double callDelta = (MarketDataClient[options.Item2.InstrumentName] as OptionMarket).Delta;
+            double putCallRatio = callDelta / putDelta;
+
+            double putSize = initialPortfolioValue * maxInvestedPercentage / (putCallRatio * putAsk + callAsk);
+            double callSize = putSize / putCallRatio;
+
+            //StrategyPortfolio.UpdatePortfolioPosition(options.Item1.InstrumentName, )
         }
 
         // Find the options that are closest to ATM and tradable and set up the initial position.
         // For now, just taker commissions + just longest maturity of options.
-        public void SelectOptionSet()
+        public Tuple<Instrument, Instrument> SelectOptions()
         {
             var tokenOptions = from o in MarketDataClient.Instruments.Values
                                where o.BaseCurrency == tokenEnum && o.Kind == Instrument.KindEnum.Option
@@ -48,12 +59,30 @@ namespace Mars
 
             var closestStrikes = (from o in tokenOptions
                                   where o.ExpirationTimestamp == longestMaturity
-                                  orderby  Math.Abs((decimal)MarketDataClient.TokenPrice - o.Strike ?? 0)
-                                  select o.Strike ?? 0).Take(10);
+                                  orderby Math.Abs((decimal)MarketDataClient.TokenPrice - o.Strike ?? 0)
+                                  select o).Take(20);
 
-            tokenOptions = from o in tokenOptions
-                           where o.ExpirationTimestamp == longestMaturity && closestStrikes.Contains(o.Strike ?? 0)
-                           select o;
+            MarketDataClient.AddContracts(closestStrikes.ToList());
+
+            // In reality we just need the first two options in closestStrikes -- a call and a put
+            Instrument selectedPut = null, selectedCall = null;
+            foreach (var i in closestStrikes)
+            {
+                if (selectedCall == null && i.OptionType == Instrument.OptionTypeEnum.Call && MarketDataClient[i.InstrumentName].Ask != 0)
+                {
+                    selectedCall = i;
+                }
+
+                if (selectedPut == null && i.OptionType == Instrument.OptionTypeEnum.Put && MarketDataClient[i.InstrumentName].Ask != 0)
+                {
+                    selectedPut = i;
+                }
+
+                if (selectedPut != null && selectedCall != null)
+                    break;
+            }
+
+            return new Tuple<Instrument, Instrument>(selectedPut, selectedCall);
         }
     }
 }

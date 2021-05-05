@@ -69,7 +69,7 @@ namespace Mars
 
         private void UpdateMarketData(object state)
         {
-            db.UpdateData(listBox1.SelectedItems.Cast<string>().ToList(), listBox3.SelectedItems.Cast<string>().ToList());
+            //db.UpdateData(listBox1.SelectedItems.Cast<string>().ToList(), listBox3.SelectedItems.Cast<string>().ToList());
         }
         private void StrategyLoop(object state)
         {
