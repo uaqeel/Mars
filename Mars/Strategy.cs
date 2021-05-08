@@ -37,12 +37,15 @@ namespace Mars
             double putDelta = (MarketDataClient[options.Item1.InstrumentName] as OptionMarket).Delta;
             double callAsk = MarketDataClient[options.Item2.InstrumentName].Ask;
             double callDelta = (MarketDataClient[options.Item2.InstrumentName] as OptionMarket).Delta;
-            double putCallRatio = callDelta / putDelta;
+            double putCallRatio = callDelta / -putDelta;
 
-            double putSize = initialPortfolioValue * maxInvestedPercentage / (putCallRatio * putAsk + callAsk);
-            double callSize = putSize / putCallRatio;
+            double putSize = Math.Round(initialPortfolioValue * maxInvestedPercentage / (putCallRatio * putAsk + callAsk), 2);
+            double callSize = Math.Round(putSize / putCallRatio, 2);
 
-            //StrategyPortfolio.UpdatePortfolioPosition(options.Item1.InstrumentName, )
+            double netDelta = putDelta * putSize + callDelta * callSize;
+
+            StrategyPortfolio.UpdatePortfolioPosition(options.Item1.InstrumentName, putSize, putAsk, MarketDataClient.TakerCommissions[options.Item1.InstrumentName]);
+            StrategyPortfolio.UpdatePortfolioPosition(options.Item2.InstrumentName, putSize, putAsk, MarketDataClient.TakerCommissions[options.Item2.InstrumentName]);
         }
 
         // Find the options that are closest to ATM and tradable and set up the initial position.
