@@ -79,7 +79,7 @@
             this.textBox1.Name = "textBox1";
             this.textBox1.Size = new System.Drawing.Size(198, 20);
             this.textBox1.TabIndex = 1;
-            this.textBox1.Text = "LtQjk4j6";
+            this.textBox1.Text = "0rypVvSb";
             // 
             // textBox2
             // 
@@ -87,7 +87,7 @@
             this.textBox2.Name = "textBox2";
             this.textBox2.Size = new System.Drawing.Size(198, 20);
             this.textBox2.TabIndex = 2;
-            this.textBox2.Text = "ilazkOlM-2AJlzwkhHHxpJwyfYMkhIfwyku3B8rrY-w";
+            this.textBox2.Text = "zcCZxkwmxO44Fi30sN5u5clROtE_mPTGvVeTyMe1uDs";
             // 
             // comboBox1
             // 
@@ -173,7 +173,7 @@
             this.textBox3.Name = "textBox3";
             this.textBox3.Size = new System.Drawing.Size(163, 20);
             this.textBox3.TabIndex = 10;
-            this.textBox3.Text = "https://test.deribit.com/api/v2";
+            this.textBox3.Text = "https://deribit.com/api/v2";
             // 
             // textBox4
             // 
@@ -213,7 +213,7 @@
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1156, 1068);
+            this.ClientSize = new System.Drawing.Size(1156, 1057);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.textBox5);
             this.Controls.Add(this.label1);

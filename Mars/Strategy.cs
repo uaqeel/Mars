@@ -27,7 +27,7 @@ namespace Mars
             Token = token;
             tokenEnum = (Instrument.BaseCurrencyEnum) Enum.Parse(typeof(Instrument.BaseCurrencyEnum), Token);
             MarketDataClient = dbClient;
-            StrategyPortfolio = new Portfolio(initialPortfolioValue);
+            StrategyPortfolio = new Portfolio(dbClient, initialPortfolioValue);
             MaxInvestedPercentage = maxInvestedPercentage;
             DeltaLimit = deltaLimit;
 
@@ -35,14 +35,18 @@ namespace Mars
             Tuple<Instrument, Instrument> options = SelectOptions();
             double putAsk = MarketDataClient[options.Item1.InstrumentName].Ask;
             double putDelta = (MarketDataClient[options.Item1.InstrumentName] as OptionMarket).Delta;
+            double putGamma = (MarketDataClient[options.Item1.InstrumentName] as OptionMarket).Gamma;
             double callAsk = MarketDataClient[options.Item2.InstrumentName].Ask;
             double callDelta = (MarketDataClient[options.Item2.InstrumentName] as OptionMarket).Delta;
-            double putCallRatio = callDelta / putDelta;
+            double callGamma = (MarketDataClient[options.Item2.InstrumentName] as OptionMarket).Gamma;
+            double putCallRatio = callDelta / -putDelta;
 
-            double putSize = initialPortfolioValue * maxInvestedPercentage / (putCallRatio * putAsk + callAsk);
+            // With these sizes, strategy will be delta-neutral to start.
+            double putSize = (initialPortfolioValue * maxInvestedPercentage) / (putCallRatio * putAsk + callAsk);
             double callSize = putSize / putCallRatio;
 
-            //StrategyPortfolio.UpdatePortfolioPosition(options.Item1.InstrumentName, )
+            StrategyPortfolio.UpdatePortfolioPosition(options.Item1.InstrumentName, putSize, putAsk, MarketDataClient.TakerCommissions[options.Item1.InstrumentName]);
+            StrategyPortfolio.UpdatePortfolioPosition(options.Item2.InstrumentName, callSize, callAsk, MarketDataClient.TakerCommissions[options.Item2.InstrumentName]);
         }
 
         // Find the options that are closest to ATM and tradable and set up the initial position.
@@ -54,8 +58,8 @@ namespace Mars
                                select o;
 
             var longestMaturity = (from o in tokenOptions
-                                   orderby o.ExpirationTimestamp
-                                   select o.ExpirationTimestamp).Last();
+                                   orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(o.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(120)).TotalSeconds)
+                                   select o.ExpirationTimestamp ?? 0).First();
 
             var closestStrikes = (from o in tokenOptions
                                   where o.ExpirationTimestamp == longestMaturity
@@ -64,7 +68,12 @@ namespace Mars
 
             MarketDataClient.AddContracts(closestStrikes.ToList());
 
-            // In reality we just need the first two options in closestStrikes -- a call and a put
+            // todo - required?
+            closestStrikes = from o in closestStrikes
+                             orderby (MarketDataClient[o.InstrumentName] as OptionMarket).Gamma descending
+                             select o;
+
+            // In reality we just need the first two options in closestStrikes -- a call and a put -- that have ask prices
             Instrument selectedPut = null, selectedCall = null;
             foreach (var i in closestStrikes)
             {

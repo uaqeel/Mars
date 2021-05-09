@@ -61,19 +61,14 @@ namespace Mars
                                                 .ToList();
 
             strategies = new Strategy[1];
-            strategies[0] = new Strategy(comboBox1.Text, db, double.Parse(textBox4.Text), double.Parse(textBox5.Text), 0.1);
+            strategies[0] = new Strategy(comboBox1.Text, db, double.Parse(textBox4.Text), double.Parse(textBox5.Text)/100, 0.1);
 
-            tt = new System.Threading.Timer(new System.Threading.TimerCallback(UpdateMarketData), null, 0, 1 * 1000);
-            tt = new System.Threading.Timer(new System.Threading.TimerCallback(StrategyLoop), null, 0, 1 * 1000);
+            tt = new System.Threading.Timer(new System.Threading.TimerCallback(UpdateMarketData), null, 0, 30 * 1000);
         }
 
         private void UpdateMarketData(object state)
         {
-            //db.UpdateData(listBox1.SelectedItems.Cast<string>().ToList(), listBox3.SelectedItems.Cast<string>().ToList());
-        }
-        private void StrategyLoop(object state)
-        {
-            throw new NotImplementedException();
+            db.UpdateData();
         }
 
 
