@@ -71,32 +71,31 @@ namespace Mars
 
         }
 
-        public double MarkToMarket(Dictionary<string, Market> markets)
-        {
-            double mtm = 0;
-            foreach (var i in AssetSizes)
-            {
-                double mid = 0.5 * (markets[i.Key].Ask + markets[i.Key].Bid);
-                mtm += i.Value * (mid - AssetPrices[i.Key]);
-            }
-
-            return mtm;
-        }
-
-        // todo
-        double CurrentPortfolioValue
+        public double CurrentPortfolioValue
         {
             get
             {
-                return 0;
+                double value = CurrentCash;
+                foreach (var a in AssetSizes)
+                {
+                    value += a.Value * (MarketDataClient[a.Key] as OptionMarket).Mid;
+                }
+
+                return value;
             }
         }
 
-        double CurrentPortfolioDelta
+        public double CurrentPortfolioDelta
         {
             get
             {
-                return 0;
+                double delta = 0;
+                foreach (var a in AssetSizes)
+                {
+                    delta += a.Value * (MarketDataClient[a.Key] as OptionMarket).Delta;
+                }
+
+                return delta;
             }
         }
 
@@ -104,7 +103,13 @@ namespace Mars
         {
             get
             {
-                return 0;
+                double gamma = 0;
+                foreach (var a in AssetSizes)
+                {
+                    gamma += a.Value * (MarketDataClient[a.Key] as OptionMarket).Gamma;
+                }
+
+                return gamma;
             }
         }
 
@@ -112,7 +117,13 @@ namespace Mars
         {
             get
             {
-                return 0;
+                double theta = 0;
+                foreach (var a in AssetSizes)
+                {
+                    theta += a.Value * (MarketDataClient[a.Key] as OptionMarket).Theta;
+                }
+
+                return theta;
             }
         }
     }

@@ -86,7 +86,7 @@ namespace Mars
             }
         }
 
-            // todo - async this thing
+        // todo - async this thing
         internal void UpdateData()
         {
             var indexPrice = JObject.Parse(ApiClient.PublicGetIndexGet(Token).ToString());
@@ -109,15 +109,21 @@ namespace Mars
                                                                                                                      (double)ja[4]);
             }
 
+            Dictionary<string, object> retValues = new Dictionary<string, object>();
             Parallel.ForEach(Markets, market =>
             {
-                bool isOption = Instruments[market.Key].Kind == Instrument.KindEnum.Option;
+                retValues.Add(market.Key, ApiClient.PublicGetOrderBookGet(market.Key, 1));
+            });
+
+            foreach (var m in retValues)
+            {
+                bool isOption = Instruments[m.Key].Kind == Instrument.KindEnum.Option;
 
                 if (isOption)
-                    Markets[market.Key] = new OptionMarket(JObject.Parse(ApiClient.PublicGetOrderBookGet(market.Key, 1).ToString())["result"] as JObject);
+                    Markets[m.Key] = new OptionMarket(JObject.Parse(retValues[m.Key].ToString())["result"] as JObject);
                 else
-                    Markets[market.Key] = new Market(JObject.Parse(ApiClient.PublicGetOrderBookGet(market.Key, 1).ToString())["result"] as JObject);
-            });
+                    Markets[m.Key] = new Market(JObject.Parse(retValues[m.Key].ToString())["result"] as JObject);
+            }
         }
     }
 
@@ -144,6 +150,14 @@ namespace Mars
         public double Ask { get; set; }
         public double Mark { get; set; }
         public double IndexRefPrice { get; set; }
+
+        public double Mid
+        {
+            get
+            {
+                return 0.5 * (Bid + Ask);
+            }
+        }
 
         public Market(long timestamp, double index_price, double mark_price, double best_bid_price, double best_ask_price)
         {

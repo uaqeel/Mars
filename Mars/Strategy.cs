@@ -13,11 +13,12 @@ namespace Mars
 {
     internal class Strategy
     {
-        string Token { get; set; }
+        public string Token { get; set; }
         Instrument.BaseCurrencyEnum tokenEnum;
 
         DeribitClient MarketDataClient { get; set; }
-        Portfolio StrategyPortfolio {get; set; }
+        
+        public Portfolio StrategyPortfolio {get; set; }
         double MaxInvestedPercentage { get; set; }
         double DeltaLimit { get; set; }
 
@@ -42,8 +43,9 @@ namespace Mars
             double putCallRatio = callDelta / -putDelta;
 
             // With these sizes, strategy will be delta-neutral to start.
-            double putSize = (initialPortfolioValue * maxInvestedPercentage) / (putCallRatio * putAsk + callAsk);
-            double callSize = putSize / putCallRatio;
+            double numUnits = (initialPortfolioValue * maxInvestedPercentage) / (putCallRatio * putAsk + callAsk);
+            double putSize = Math.Round(putCallRatio * numUnits, 2);
+            double callSize = Math.Round(numUnits, 2);
 
             StrategyPortfolio.UpdatePortfolioPosition(options.Item1.InstrumentName, putSize, putAsk, MarketDataClient.TakerCommissions[options.Item1.InstrumentName]);
             StrategyPortfolio.UpdatePortfolioPosition(options.Item2.InstrumentName, callSize, callAsk, MarketDataClient.TakerCommissions[options.Item2.InstrumentName]);
@@ -58,7 +60,7 @@ namespace Mars
                                select o;
 
             var longestMaturity = (from o in tokenOptions
-                                   orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(o.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(120)).TotalSeconds)
+                                   orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(o.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(90)).TotalSeconds)
                                    select o.ExpirationTimestamp ?? 0).First();
 
             var closestStrikes = (from o in tokenOptions
@@ -68,7 +70,7 @@ namespace Mars
 
             MarketDataClient.AddContracts(closestStrikes.ToList());
 
-            // todo - required?
+            // todo - required? can't do this until market data has been retrieved
             closestStrikes = from o in closestStrikes
                              orderby (MarketDataClient[o.InstrumentName] as OptionMarket).Gamma descending
                              select o;
