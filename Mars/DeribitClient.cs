@@ -26,8 +26,6 @@ namespace Mars
         public Dictionary<string, double> MakerCommissions { get; set; }
         public Dictionary<string, double> TakerCommissions { get; set; }
 
-        public Dictionary<string, JObject> Futures { get; set; }
-        public Dictionary<string, JObject> Options { get; set; }
         public SortedDictionary<DateTime, double> HistoricalVolatilities { get; set; }
         public SortedDictionary<DateTime, Candle> ImpliedVolatilityCandles { get; set; }
         public Dictionary<string, Market> Markets { get; set; }
@@ -73,20 +71,22 @@ namespace Mars
 
         internal void AddContracts(List<Instrument> contracts)
         {
-            foreach (var i in contracts)
+            lock (Markets)
             {
-                bool isOption = i.Kind == Instrument.KindEnum.Option;
-                if (!Markets.ContainsKey(i.InstrumentName))
+                foreach (var i in contracts)
                 {
-                    if (isOption)
-                        Markets[i.InstrumentName] = new OptionMarket(JObject.Parse(ApiClient.PublicGetOrderBookGet(i.InstrumentName, 1).ToString())["result"] as JObject);
-                    else
-                        Markets[i.InstrumentName] = new Market(JObject.Parse(ApiClient.PublicGetOrderBookGet(i.InstrumentName, 1).ToString())["result"] as JObject);
+                    bool isOption = i.Kind == Instrument.KindEnum.Option;
+                    if (!Markets.ContainsKey(i.InstrumentName))
+                    {
+                        if (isOption)
+                            Markets[i.InstrumentName] = new OptionMarket(JObject.Parse(ApiClient.PublicGetOrderBookGet(i.InstrumentName, 1).ToString())["result"] as JObject);
+                        else
+                            Markets[i.InstrumentName] = new Market(JObject.Parse(ApiClient.PublicGetOrderBookGet(i.InstrumentName, 1).ToString())["result"] as JObject);
+                    }
                 }
             }
         }
 
-        // todo - async this thing
         internal void UpdateData()
         {
             var indexPrice = JObject.Parse(ApiClient.PublicGetIndexGet(Token).ToString());
@@ -110,19 +110,22 @@ namespace Mars
             }
 
             Dictionary<string, object> retValues = new Dictionary<string, object>();
-            Parallel.ForEach(Markets, market =>
+            foreach (var market in Markets)
             {
                 retValues.Add(market.Key, ApiClient.PublicGetOrderBookGet(market.Key, 1));
-            });
+            }
 
-            foreach (var m in retValues)
+            lock (Markets)
             {
-                bool isOption = Instruments[m.Key].Kind == Instrument.KindEnum.Option;
+                foreach (var m in retValues)
+                {
+                    bool isOption = Instruments[m.Key].Kind == Instrument.KindEnum.Option;
 
-                if (isOption)
-                    Markets[m.Key] = new OptionMarket(JObject.Parse(retValues[m.Key].ToString())["result"] as JObject);
-                else
-                    Markets[m.Key] = new Market(JObject.Parse(retValues[m.Key].ToString())["result"] as JObject);
+                    if (isOption)
+                        Markets[m.Key] = new OptionMarket(JObject.Parse(retValues[m.Key].ToString())["result"] as JObject);
+                    else
+                        Markets[m.Key] = new Market(JObject.Parse(retValues[m.Key].ToString())["result"] as JObject);
+                }
             }
         }
     }
@@ -204,6 +207,30 @@ namespace Mars
             Gamma = (double)JsonObject["greeks"]["gamma"];
             Theta = (double)JsonObject["greeks"]["theta"];
             MarkVol = (double)JsonObject["mark_iv"];
+        }
+
+        public double CashAsk
+        {
+            get
+            {
+                return UnderlyingRefPrice * Ask;
+            }
+        }
+
+        public double CashBid
+        {
+            get
+            {
+                return UnderlyingRefPrice * Bid;
+            }
+        }
+
+        public double CashMid
+        {
+            get
+            {
+                return UnderlyingRefPrice * Mid;
+            }
         }
     }
 }

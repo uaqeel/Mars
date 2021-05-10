@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Diagnostics;
 using Org.OpenAPITools.Client;
 using Org.OpenAPITools.Api;
 using Org.OpenAPITools.Model;
@@ -22,6 +23,10 @@ namespace Mars
         double MaxInvestedPercentage { get; set; }
         double DeltaLimit { get; set; }
 
+        private Instrument tradedFuture;
+        private Instrument tradedPut;
+        private Instrument tradedCall;
+
 
         public Strategy(string token, DeribitClient dbClient, double initialPortfolioValue, double maxInvestedPercentage = 0.50, double deltaLimit = 0.5)
         {
@@ -33,13 +38,13 @@ namespace Mars
             DeltaLimit = deltaLimit;
 
             // Decide which options to track and buy them.
-            Tuple<Instrument, Instrument> options = SelectOptions();
-            double putAsk = MarketDataClient[options.Item1.InstrumentName].Ask;
-            double putDelta = (MarketDataClient[options.Item1.InstrumentName] as OptionMarket).Delta;
-            double putGamma = (MarketDataClient[options.Item1.InstrumentName] as OptionMarket).Gamma;
-            double callAsk = MarketDataClient[options.Item2.InstrumentName].Ask;
-            double callDelta = (MarketDataClient[options.Item2.InstrumentName] as OptionMarket).Delta;
-            double callGamma = (MarketDataClient[options.Item2.InstrumentName] as OptionMarket).Gamma;
+            Tuple<Instrument, Instrument, Instrument> contracts = SelectContracts();
+            double putAsk = (MarketDataClient[contracts.Item2.InstrumentName] as OptionMarket).CashAsk;
+            double putDelta = (MarketDataClient[contracts.Item2.InstrumentName] as OptionMarket).Delta;
+            double putGamma = (MarketDataClient[contracts.Item2.InstrumentName] as OptionMarket).Gamma;
+            double callAsk = (MarketDataClient[contracts.Item3.InstrumentName] as OptionMarket).CashAsk;
+            double callDelta = (MarketDataClient[contracts.Item3.InstrumentName] as OptionMarket).Delta;
+            double callGamma = (MarketDataClient[contracts.Item3.InstrumentName] as OptionMarket).Gamma;
             double putCallRatio = callDelta / -putDelta;
 
             // With these sizes, strategy will be delta-neutral to start.
@@ -47,24 +52,47 @@ namespace Mars
             double putSize = Math.Round(putCallRatio * numUnits, 2);
             double callSize = Math.Round(numUnits, 2);
 
-            StrategyPortfolio.UpdatePortfolioPosition(options.Item1.InstrumentName, putSize, putAsk, MarketDataClient.TakerCommissions[options.Item1.InstrumentName]);
-            StrategyPortfolio.UpdatePortfolioPosition(options.Item2.InstrumentName, callSize, callAsk, MarketDataClient.TakerCommissions[options.Item2.InstrumentName]);
+            StrategyPortfolio.UpdatePortfolioPosition(contracts.Item2.InstrumentName, putSize, putAsk, MarketDataClient.TakerCommissions[contracts.Item2.InstrumentName]);
+            StrategyPortfolio.UpdatePortfolioPosition(contracts.Item3.InstrumentName, callSize, callAsk, MarketDataClient.TakerCommissions[contracts.Item3.InstrumentName]);
+
+            tradedFuture = contracts.Item1;
+            tradedPut = contracts.Item2;
+            tradedCall = contracts.Item3;
+        }
+
+        public void UpdateStrategy()
+        {
+            double delta = StrategyPortfolio.CurrentPortfolioDelta;
+            Debug.WriteLine("Pre - PortfolioValue = " + StrategyPortfolio.CurrentPortfolioValue + "; PortfolioDelta = " + StrategyPortfolio.CurrentPortfolioDelta);
+            if (Math.Abs(delta) > DeltaLimit)
+            {
+                double quantityToTrade = Math.Sign(delta) * (0.5 * DeltaLimit - Math.Abs(delta));         // todo - should i do this scaled to portfolio size?
+                double priceToTrade = Math.Sign(quantityToTrade) > 0 ? MarketDataClient[tradedFuture.InstrumentName].Ask : MarketDataClient[tradedFuture.InstrumentName].Bid;
+
+                StrategyPortfolio.UpdatePortfolioPosition(tradedFuture.InstrumentName, quantityToTrade, priceToTrade, MarketDataClient.TakerCommissions[tradedFuture.InstrumentName]);
+            }
+
+            Debug.WriteLine("Post - PortfolioValue = " + StrategyPortfolio.CurrentPortfolioValue + "; PortfolioDelta = " + StrategyPortfolio.CurrentPortfolioDelta);
         }
 
         // Find the options that are closest to ATM and tradable and set up the initial position.
         // For now, just taker commissions + just longest maturity of options.
-        public Tuple<Instrument, Instrument> SelectOptions()
+        public Tuple<Instrument, Instrument, Instrument> SelectContracts()
         {
+            var tokenFutures = from o in MarketDataClient.Instruments.Values
+                               where o.BaseCurrency == tokenEnum && o.Kind == Instrument.KindEnum.Future
+                               select o;
+
             var tokenOptions = from o in MarketDataClient.Instruments.Values
                                where o.BaseCurrency == tokenEnum && o.Kind == Instrument.KindEnum.Option
                                select o;
 
-            var longestMaturity = (from o in tokenOptions
-                                   orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(o.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(90)).TotalSeconds)
-                                   select o.ExpirationTimestamp ?? 0).First();
+            var selectedMaturity = (from o in tokenOptions
+                                    orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(o.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(90)).TotalSeconds)
+                                    select o.ExpirationTimestamp ?? 0).First();
 
             var closestStrikes = (from o in tokenOptions
-                                  where o.ExpirationTimestamp == longestMaturity
+                                  where o.ExpirationTimestamp == selectedMaturity
                                   orderby Math.Abs((decimal)MarketDataClient.TokenPrice - o.Strike ?? 0)
                                   select o).Take(20);
 
@@ -93,7 +121,15 @@ namespace Mars
                     break;
             }
 
-            return new Tuple<Instrument, Instrument>(selectedPut, selectedCall);
+            Instrument selectedFuture = (from f in tokenFutures
+                                         orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(f.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(30)).TotalSeconds)
+                                         select f).First();
+
+            List<Instrument> futs = new List<Instrument>();
+            futs.Add(selectedFuture);
+            MarketDataClient.AddContracts(futs);
+
+            return new Tuple<Instrument, Instrument, Instrument>(selectedFuture, selectedPut, selectedCall);
         }
     }
 }

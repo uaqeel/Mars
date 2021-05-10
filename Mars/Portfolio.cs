@@ -24,7 +24,7 @@ namespace Mars
             CurrentCash = initialPortfolioValue;
         }
 
-        // todo - think about maker
+        // todo(2) - think about maker
         // todo - cash calculations are all suspect
         public void UpdatePortfolioPosition(string instrumentName, double tradeSize, double tradePrice, double commissionInPercentage)
         {
@@ -33,11 +33,11 @@ namespace Mars
                 AssetSizes[instrumentName] = tradeSize;
                 AssetPrices[instrumentName] = tradePrice;
 
-                // todo - haven't factored in cap on commission here
+                // todo(2) - haven't factored in cap on commission here
                 CurrentCash -= tradeSize * tradePrice;
                 CurrentCash -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
 
-                // todo - haven't factored in delivery fee
+                // todo(2) - haven't factored in delivery fee
             }
             else
             {
@@ -52,10 +52,10 @@ namespace Mars
                     AssetSizes.Remove(instrumentName);
                     AssetPrices.Remove(instrumentName);
                 }
-                else if (Math.Sign(existingSize) != Math.Sign (existingSize + tradeSize))
+                else if (Math.Sign(existingSize) != Math.Sign (tradeSize))
                 {
                     CurrentCash -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
-                    CurrentCash += existingSize * (tradePrice - AssetPrices[instrumentName]);
+                    CurrentCash += tradeSize * (tradePrice - AssetPrices[instrumentName]);
 
                     AssetSizes[instrumentName] = existingSize + tradeSize;
                     AssetPrices[instrumentName] = tradePrice;
@@ -71,6 +71,7 @@ namespace Mars
 
         }
 
+        // todo - check these
         public double CurrentPortfolioValue
         {
             get
@@ -78,7 +79,10 @@ namespace Mars
                 double value = CurrentCash;
                 foreach (var a in AssetSizes)
                 {
-                    value += a.Value * (MarketDataClient[a.Key] as OptionMarket).Mid;
+                    if (MarketDataClient.Instruments[a.Key].Kind == Org.OpenAPITools.Model.Instrument.KindEnum.Option)
+                        value += a.Value * (MarketDataClient[a.Key] as OptionMarket).CashMid;
+                    else
+                        value += a.Value * ((MarketDataClient[a.Key] as Market).Mid - AssetPrices[a.Key]);
                 }
 
                 return value;
@@ -92,7 +96,10 @@ namespace Mars
                 double delta = 0;
                 foreach (var a in AssetSizes)
                 {
-                    delta += a.Value * (MarketDataClient[a.Key] as OptionMarket).Delta;
+                    if (MarketDataClient.Instruments[a.Key].Kind == Org.OpenAPITools.Model.Instrument.KindEnum.Option)
+                        delta += a.Value * (MarketDataClient[a.Key] as OptionMarket).Delta;
+                    else
+                        delta += a.Value;
                 }
 
                 return delta;
@@ -106,7 +113,8 @@ namespace Mars
                 double gamma = 0;
                 foreach (var a in AssetSizes)
                 {
-                    gamma += a.Value * (MarketDataClient[a.Key] as OptionMarket).Gamma;
+                    if (MarketDataClient.Instruments[a.Key].Kind == Org.OpenAPITools.Model.Instrument.KindEnum.Option)
+                        gamma += a.Value * (MarketDataClient[a.Key] as OptionMarket).Gamma;
                 }
 
                 return gamma;
@@ -120,7 +128,8 @@ namespace Mars
                 double theta = 0;
                 foreach (var a in AssetSizes)
                 {
-                    theta += a.Value * (MarketDataClient[a.Key] as OptionMarket).Theta;
+                    if (MarketDataClient.Instruments[a.Key].Kind == Org.OpenAPITools.Model.Instrument.KindEnum.Option)
+                        theta += a.Value * (MarketDataClient[a.Key] as OptionMarket).Theta;
                 }
 
                 return theta;

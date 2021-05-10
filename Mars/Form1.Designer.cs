@@ -52,6 +52,8 @@
             this.label1 = new System.Windows.Forms.Label();
             this.label2 = new System.Windows.Forms.Label();
             this.textBox5 = new System.Windows.Forms.TextBox();
+            this.label3 = new System.Windows.Forms.Label();
+            this.textBox6 = new System.Windows.Forms.TextBox();
             ((System.ComponentModel.ISupportInitialize)(this.chart1)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.chart2)).BeginInit();
             ((System.ComponentModel.ISupportInitialize)(this.chart3)).BeginInit();
@@ -123,7 +125,7 @@
             series5.Legend = "Legend1";
             series5.Name = "Series1";
             this.chart2.Series.Add(series5);
-            this.chart2.Size = new System.Drawing.Size(763, 229);
+            this.chart2.Size = new System.Drawing.Size(763, 339);
             this.chart2.TabIndex = 5;
             this.chart2.Text = "chart2";
             // 
@@ -133,7 +135,7 @@
             this.chart3.ChartAreas.Add(chartArea6);
             legend6.Name = "Legend1";
             this.chart3.Legends.Add(legend6);
-            this.chart3.Location = new System.Drawing.Point(12, 648);
+            this.chart3.Location = new System.Drawing.Point(12, 758);
             this.chart3.Name = "chart3";
             series6.ChartArea = "ChartArea1";
             series6.Legend = "Legend1";
@@ -177,16 +179,16 @@
             // 
             // textBox4
             // 
-            this.textBox4.Location = new System.Drawing.Point(781, 664);
+            this.textBox4.Location = new System.Drawing.Point(781, 774);
             this.textBox4.Name = "textBox4";
             this.textBox4.Size = new System.Drawing.Size(100, 20);
             this.textBox4.TabIndex = 11;
-            this.textBox4.Text = "5";
+            this.textBox4.Text = "10000";
             // 
             // label1
             // 
             this.label1.AutoSize = true;
-            this.label1.Location = new System.Drawing.Point(782, 648);
+            this.label1.Location = new System.Drawing.Point(782, 758);
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(102, 13);
             this.label1.TabIndex = 12;
@@ -195,7 +197,7 @@
             // label2
             // 
             this.label2.AutoSize = true;
-            this.label2.Location = new System.Drawing.Point(933, 648);
+            this.label2.Location = new System.Drawing.Point(888, 758);
             this.label2.Name = "label2";
             this.label2.Size = new System.Drawing.Size(88, 13);
             this.label2.TabIndex = 14;
@@ -203,17 +205,36 @@
             // 
             // textBox5
             // 
-            this.textBox5.Location = new System.Drawing.Point(932, 664);
+            this.textBox5.Location = new System.Drawing.Point(887, 774);
             this.textBox5.Name = "textBox5";
             this.textBox5.Size = new System.Drawing.Size(100, 20);
             this.textBox5.TabIndex = 13;
             this.textBox5.Text = "50";
             // 
+            // label3
+            // 
+            this.label3.AutoSize = true;
+            this.label3.Location = new System.Drawing.Point(994, 758);
+            this.label3.Name = "label3";
+            this.label3.Size = new System.Drawing.Size(56, 13);
+            this.label3.TabIndex = 16;
+            this.label3.Text = "Delta Limit";
+            // 
+            // textBox6
+            // 
+            this.textBox6.Location = new System.Drawing.Point(993, 774);
+            this.textBox6.Name = "textBox6";
+            this.textBox6.Size = new System.Drawing.Size(100, 20);
+            this.textBox6.TabIndex = 15;
+            this.textBox6.Text = "0.01";
+            // 
             // Form1
             // 
             this.AutoScaleDimensions = new System.Drawing.SizeF(6F, 13F);
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
-            this.ClientSize = new System.Drawing.Size(1156, 1057);
+            this.ClientSize = new System.Drawing.Size(1156, 1178);
+            this.Controls.Add(this.label3);
+            this.Controls.Add(this.textBox6);
             this.Controls.Add(this.label2);
             this.Controls.Add(this.textBox5);
             this.Controls.Add(this.label1);
@@ -258,6 +279,8 @@
         private System.Windows.Forms.Label label1;
         private System.Windows.Forms.Label label2;
         private System.Windows.Forms.TextBox textBox5;
+        private System.Windows.Forms.Label label3;
+        private System.Windows.Forms.TextBox textBox6;
     }
 }
 
