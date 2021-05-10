@@ -5,21 +5,27 @@ namespace Mars
 {
     internal class Portfolio
     {
+        DeribitClient MarketDataClient;
+
         double InitialPortfolioValue { get; set; }
-        double CurrentPortfolioValue { get; set; }
 
         Dictionary<string, double> AssetSizes { get; set; }        // values = sizes
         Dictionary<string, double> AssetPrices { get; set; }        // values = prices
+        double CurrentCash { get; set; }
 
-        public Portfolio(double initialPortfolioValue)
+        public Portfolio(DeribitClient client, double initialPortfolioValue)
         {
+            MarketDataClient = client;
+
             InitialPortfolioValue = initialPortfolioValue;
 
             AssetSizes = new Dictionary<string, double>();
             AssetPrices = new Dictionary<string, double>();
+            CurrentCash = initialPortfolioValue;
         }
 
         // todo - think about maker
+        // todo - cash calculations are all suspect
         public void UpdatePortfolioPosition(string instrumentName, double tradeSize, double tradePrice, double commissionInPercentage)
         {
             if (!AssetSizes.ContainsKey(instrumentName))
@@ -28,7 +34,8 @@ namespace Mars
                 AssetPrices[instrumentName] = tradePrice;
 
                 // todo - haven't factored in cap on commission here
-                CurrentPortfolioValue -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
+                CurrentCash -= tradeSize * tradePrice;
+                CurrentCash -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
 
                 // todo - haven't factored in delivery fee
             }
@@ -39,23 +46,23 @@ namespace Mars
 
                 if (existingSize + tradeSize == 0)
                 {
-                    CurrentPortfolioValue -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
-                    CurrentPortfolioValue += tradeSize * (tradePrice - AssetPrices[instrumentName]);
+                    CurrentCash -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
+                    CurrentCash += tradeSize * (tradePrice - AssetPrices[instrumentName]);
 
                     AssetSizes.Remove(instrumentName);
                     AssetPrices.Remove(instrumentName);
                 }
                 else if (Math.Sign(existingSize) != Math.Sign (existingSize + tradeSize))
                 {
-                    CurrentPortfolioValue -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
-                    CurrentPortfolioValue += existingSize * (tradePrice - AssetPrices[instrumentName]);
+                    CurrentCash -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
+                    CurrentCash += existingSize * (tradePrice - AssetPrices[instrumentName]);
 
                     AssetSizes[instrumentName] = existingSize + tradeSize;
                     AssetPrices[instrumentName] = tradePrice;
                 }
                 else
                 {
-                    CurrentPortfolioValue -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
+                    CurrentCash-= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
 
                     AssetSizes[instrumentName] = existingSize + tradeSize;
                     AssetPrices[instrumentName] = (existingSize * AssetPrices[instrumentName] + tradeSize * tradePrice) / (existingSize + tradeSize);
@@ -64,16 +71,60 @@ namespace Mars
 
         }
 
-        public double MarkToMarket(Dictionary<string, Market> markets)
+        public double CurrentPortfolioValue
         {
-            double mtm = 0;
-            foreach (var i in AssetSizes)
+            get
             {
-                double mid = 0.5 * (markets[i.Key].Ask + markets[i.Key].Bid);
-                mtm += i.Value * (mid - AssetPrices[i.Key]);
-            }
+                double value = CurrentCash;
+                foreach (var a in AssetSizes)
+                {
+                    value += a.Value * (MarketDataClient[a.Key] as OptionMarket).Mid;
+                }
 
-            return mtm;
+                return value;
+            }
+        }
+
+        public double CurrentPortfolioDelta
+        {
+            get
+            {
+                double delta = 0;
+                foreach (var a in AssetSizes)
+                {
+                    delta += a.Value * (MarketDataClient[a.Key] as OptionMarket).Delta;
+                }
+
+                return delta;
+            }
+        }
+
+        double CurrentPortfolioGamma
+        {
+            get
+            {
+                double gamma = 0;
+                foreach (var a in AssetSizes)
+                {
+                    gamma += a.Value * (MarketDataClient[a.Key] as OptionMarket).Gamma;
+                }
+
+                return gamma;
+            }
+        }
+
+        double CurrentPortfolioTheta
+        {
+            get
+            {
+                double theta = 0;
+                foreach (var a in AssetSizes)
+                {
+                    theta += a.Value * (MarketDataClient[a.Key] as OptionMarket).Theta;
+                }
+
+                return theta;
+            }
         }
     }
 }

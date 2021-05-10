@@ -13,11 +13,12 @@ namespace Mars
 {
     internal class Strategy
     {
-        string Token { get; set; }
+        public string Token { get; set; }
         Instrument.BaseCurrencyEnum tokenEnum;
 
         DeribitClient MarketDataClient { get; set; }
-        Portfolio StrategyPortfolio {get; set; }
+        
+        public Portfolio StrategyPortfolio {get; set; }
         double MaxInvestedPercentage { get; set; }
         double DeltaLimit { get; set; }
 
@@ -27,7 +28,7 @@ namespace Mars
             Token = token;
             tokenEnum = (Instrument.BaseCurrencyEnum) Enum.Parse(typeof(Instrument.BaseCurrencyEnum), Token);
             MarketDataClient = dbClient;
-            StrategyPortfolio = new Portfolio(initialPortfolioValue);
+            StrategyPortfolio = new Portfolio(dbClient, initialPortfolioValue);
             MaxInvestedPercentage = maxInvestedPercentage;
             DeltaLimit = deltaLimit;
 
@@ -35,17 +36,19 @@ namespace Mars
             Tuple<Instrument, Instrument> options = SelectOptions();
             double putAsk = MarketDataClient[options.Item1.InstrumentName].Ask;
             double putDelta = (MarketDataClient[options.Item1.InstrumentName] as OptionMarket).Delta;
+            double putGamma = (MarketDataClient[options.Item1.InstrumentName] as OptionMarket).Gamma;
             double callAsk = MarketDataClient[options.Item2.InstrumentName].Ask;
             double callDelta = (MarketDataClient[options.Item2.InstrumentName] as OptionMarket).Delta;
+            double callGamma = (MarketDataClient[options.Item2.InstrumentName] as OptionMarket).Gamma;
             double putCallRatio = callDelta / -putDelta;
 
-            double putSize = Math.Round(initialPortfolioValue * maxInvestedPercentage / (putCallRatio * putAsk + callAsk), 2);
-            double callSize = Math.Round(putSize / putCallRatio, 2);
-
-            double netDelta = putDelta * putSize + callDelta * callSize;
+            // With these sizes, strategy will be delta-neutral to start.
+            double numUnits = (initialPortfolioValue * maxInvestedPercentage) / (putCallRatio * putAsk + callAsk);
+            double putSize = Math.Round(putCallRatio * numUnits, 2);
+            double callSize = Math.Round(numUnits, 2);
 
             StrategyPortfolio.UpdatePortfolioPosition(options.Item1.InstrumentName, putSize, putAsk, MarketDataClient.TakerCommissions[options.Item1.InstrumentName]);
-            StrategyPortfolio.UpdatePortfolioPosition(options.Item2.InstrumentName, putSize, putAsk, MarketDataClient.TakerCommissions[options.Item2.InstrumentName]);
+            StrategyPortfolio.UpdatePortfolioPosition(options.Item2.InstrumentName, callSize, callAsk, MarketDataClient.TakerCommissions[options.Item2.InstrumentName]);
         }
 
         // Find the options that are closest to ATM and tradable and set up the initial position.
@@ -57,8 +60,8 @@ namespace Mars
                                select o;
 
             var longestMaturity = (from o in tokenOptions
-                                   orderby o.ExpirationTimestamp
-                                   select o.ExpirationTimestamp).Last();
+                                   orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(o.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(90)).TotalSeconds)
+                                   select o.ExpirationTimestamp ?? 0).First();
 
             var closestStrikes = (from o in tokenOptions
                                   where o.ExpirationTimestamp == longestMaturity
@@ -67,7 +70,12 @@ namespace Mars
 
             MarketDataClient.AddContracts(closestStrikes.ToList());
 
-            // In reality we just need the first two options in closestStrikes -- a call and a put
+            // todo - required? can't do this until market data has been retrieved
+            closestStrikes = from o in closestStrikes
+                             orderby (MarketDataClient[o.InstrumentName] as OptionMarket).Gamma descending
+                             select o;
+
+            // In reality we just need the first two options in closestStrikes -- a call and a put -- that have ask prices
             Instrument selectedPut = null, selectedCall = null;
             foreach (var i in closestStrikes)
             {

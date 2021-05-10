@@ -61,67 +61,84 @@ namespace Mars
                                                 .ToList();
 
             strategies = new Strategy[1];
-            strategies[0] = new Strategy(comboBox1.Text, db, double.Parse(textBox4.Text), double.Parse(textBox5.Text) / 100, 0.1);
+            strategies[0] = new Strategy(comboBox1.Text, db, double.Parse(textBox4.Text), double.Parse(textBox5.Text)/100, 0.1);
 
-            tt = new System.Threading.Timer(new System.Threading.TimerCallback(UpdateMarketData), null, 0, 1 * 1000);
-            tt = new System.Threading.Timer(new System.Threading.TimerCallback(StrategyLoop), null, 0, 1 * 1000);
+            tt = new System.Threading.Timer(new System.Threading.TimerCallback(UpdateMarketData), null, 0, 30 * 1000);
         }
 
+        // todo - time stamping of all the market data is crap.
         private void UpdateMarketData(object state)
         {
-            //db.UpdateData(listBox1.SelectedItems.Cast<string>().ToList(), listBox3.SelectedItems.Cast<string>().ToList());
+            db.UpdateData();
+            DateTime now = DateTime.Now;
+
+            // todo - run rebalancing
+
+            // Chart 1 -- token price & future price
+            List<Tuple<string, DateTime, double>> data = new List<Tuple<string, DateTime, double>>();
+            data.Add(new Tuple<string, DateTime, double>("Token Price", now, db.TokenPrice));
+            data.Add(new Tuple<string, DateTime, double>("Future Price", now, 0));      // todo
+            AddManyDataPoints(chart1, data, false, SeriesChartType.Line);
+
+            // Chart 2 -- historical & implied volatilities
+            List<Tuple<string, DateTime, double>> data2 = new List<Tuple<string, DateTime, double>>();
+            data2.Add(new Tuple<string, DateTime, double>("Implied Vols", db.ImpliedVolatilityCandles.Last().Key, db.ImpliedVolatilityCandles.Last().Value.Close));
+            data2.Add(new Tuple<string, DateTime, double>("HistoricalVols", db.HistoricalVolatilities.Last().Key, db.HistoricalVolatilities.Last().Value));
+            AddManyDataPoints(chart2, data2, false, SeriesChartType.Line);
+
+            // Chart 3 -- strategy portfolio value & delta
+            List<Tuple<string, DateTime, double>> data3 = new List<Tuple<string, DateTime, double>>();
+            data3.Add(new Tuple<string, DateTime, double>("Portfolio Value", now, strategies[0].StrategyPortfolio.CurrentPortfolioValue));
+            data3.Add(new Tuple<string, DateTime, double>("Portfolio Delta", now, strategies[0].StrategyPortfolio.CurrentPortfolioDelta));
+            AddManyDataPoints(chart3, data3, false, SeriesChartType.Line);
         }
-        private void StrategyLoop(object state)
+
+
+        // Add many points to a single series in one go
+        private static void AddManyDataPoints(Chart chart, string seriesName, IEnumerable<Tuple<DateTime, double>> data, bool useMarker, SeriesChartType seriesChartType = SeriesChartType.FastLine)
         {
-            throw new NotImplementedException();
+            int n = data.Count();
+            List<Tuple<string, DateTime, double>> newData = new List<Tuple<string, DateTime, double>>(n);
+            int i = 0;
+            foreach (var d in data)
+            {
+                newData.Add(new Tuple<string, DateTime, double>(seriesName, d.Item1, d.Item2));
+                i++;
+            }
+
+            AddManyDataPoints(chart, newData, useMarker, seriesChartType);
         }
 
+        // Add many points to different series in one go
+        private static void AddManyDataPoints<T>(Chart chart, IEnumerable<Tuple<string, T, double>> data, bool useMarker, SeriesChartType seriesChartType = SeriesChartType.FastLine)
+        {
+            chart.Invoke(new MethodInvoker(delegate
+            {
+                foreach (var d in data)
+                {
+                    if (chart.Series.FindByName(d.Item1) == null)
+                    {
+                        Series ss = chart.Series.Add(d.Item1);
+                        ss.ChartArea = chart.ChartAreas[0].Name;
 
-        //// Add many points to a single series in one go
-        //private static void AddManyDataPoints(Chart chart, string seriesName, IEnumerable<Tuple<DateTime, double>> data, bool useMarker, SeriesChartType seriesChartType = SeriesChartType.FastLine)
-        //{
-        //    int n = data.Count();
-        //    List<Tuple<string, DateTime, double>> newData = new List<Tuple<string, DateTime, double>>(n);
-        //    int i = 0;
-        //    foreach (var d in data)
-        //    {
-        //        newData.Add(new Tuple<string, DateTime, double>(seriesName, d.Item1, d.Item2));
-        //        i++;
-        //    }
+                        if (typeof(T) == typeof(DateTime))
+                            ss.XValueType = System.Windows.Forms.DataVisualization.Charting.ChartValueType.Time;
 
-        //    AddManyDataPoints(chart, newData, useMarker, seriesChartType);
-        //}
+                        ss.ToolTip = d.Item1 + ": (#VALY2, #VALX)";
 
-        //// Add many points to different series in one go
-        //private static void AddManyDataPoints<T>(Chart chart, IEnumerable<Tuple<string, T, double>> data, bool useMarker, SeriesChartType seriesChartType = SeriesChartType.FastLine)
-        //{
-        //    chart.Invoke(new MethodInvoker(delegate
-        //    {
-        //        foreach (var d in data)
-        //        {
-        //            if (chart.Series.FindByName(d.Item1) == null)
-        //            {
-        //                Series ss = chart.Series.Add(d.Item1);
-        //                ss.ChartArea = chart.ChartAreas[0].Name;
+                        ss.ChartType = seriesChartType;
+                    }
 
-        //                if (typeof(T) == typeof(DateTime))
-        //                    ss.XValueType = System.Windows.Forms.DataVisualization.Charting.ChartValueType.Time;
+                    DataPoint pp = new DataPoint();
 
-        //                ss.ToolTip = d.Item1 + ": (#VALY2, #VALX)";
+                    if (useMarker)
+                        pp.MarkerStyle = MarkerStyle.Circle;
 
-        //                ss.ChartType = seriesChartType;
-        //            }
-
-        //            DataPoint pp = new DataPoint();
-
-        //            if (useMarker)
-        //                pp.MarkerStyle = MarkerStyle.Circle;
-
-        //            pp.SetValueXY(d.Item2, Math.Round(d.Item3, 2));
-        //            chart.Series[d.Item1].Points.Add(pp);
-        //        }
-        //    }));
-        //}
+                    pp.SetValueXY(d.Item2, Math.Round(d.Item3, 2));
+                    chart.Series[d.Item1].Points.Add(pp);
+                }
+            }));
+        }
 
     }
 }
