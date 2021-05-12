@@ -9,9 +9,11 @@ namespace Mars
 
         double InitialPortfolioValue { get; set; }
 
-        Dictionary<string, double> AssetSizes { get; set; }        // values = sizes
-        Dictionary<string, double> AssetPrices { get; set; }        // values = prices
-        double CurrentCash { get; set; }
+        public Dictionary<string, double> AssetSizes { get; set; }        // values = sizes
+        public Dictionary<string, double> AssetPrices { get; set; }        // values = prices
+        public double CurrentCash { get; set; }
+
+        public double TotalCommissions { get; set; }
 
         public Portfolio(DeribitClient client, double initialPortfolioValue)
         {
@@ -28,14 +30,17 @@ namespace Mars
         // todo - cash calculations are all suspect
         public void UpdatePortfolioPosition(string instrumentName, double tradeSize, double tradePrice, double commissionInPercentage)
         {
+            // todo(2) - haven't factored in cap on commission here
+            double commissions = Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
+            CurrentCash -= commissions;
+            TotalCommissions += commissions;
+
             if (!AssetSizes.ContainsKey(instrumentName))
             {
                 AssetSizes[instrumentName] = tradeSize;
                 AssetPrices[instrumentName] = tradePrice;
 
-                // todo(2) - haven't factored in cap on commission here
                 CurrentCash -= tradeSize * tradePrice;
-                CurrentCash -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
 
                 // todo(2) - haven't factored in delivery fee
             }
@@ -46,7 +51,6 @@ namespace Mars
 
                 if (existingSize + tradeSize == 0)
                 {
-                    CurrentCash -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
                     CurrentCash += tradeSize * (tradePrice - AssetPrices[instrumentName]);
 
                     AssetSizes.Remove(instrumentName);
@@ -54,7 +58,6 @@ namespace Mars
                 }
                 else if (Math.Sign(existingSize) != Math.Sign (tradeSize))
                 {
-                    CurrentCash -= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
                     CurrentCash += tradeSize * (tradePrice - AssetPrices[instrumentName]);
 
                     AssetSizes[instrumentName] = existingSize + tradeSize;
@@ -62,8 +65,6 @@ namespace Mars
                 }
                 else
                 {
-                    CurrentCash-= Math.Abs(tradeSize) * tradePrice * commissionInPercentage;
-
                     AssetSizes[instrumentName] = existingSize + tradeSize;
                     AssetPrices[instrumentName] = (existingSize * AssetPrices[instrumentName] + tradeSize * tradePrice) / (existingSize + tradeSize);
                 }
@@ -106,7 +107,7 @@ namespace Mars
             }
         }
 
-        double CurrentPortfolioGamma
+        public double CurrentPortfolioGamma
         {
             get
             {
@@ -121,7 +122,7 @@ namespace Mars
             }
         }
 
-        double CurrentPortfolioTheta
+        public double CurrentPortfolioTheta
         {
             get
             {

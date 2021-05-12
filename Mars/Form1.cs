@@ -78,13 +78,20 @@ namespace Mars
             db.UpdateData();
             DateTime now = DateTime.Now;
 
+            bool updated = false;
             foreach (var s in strategies)
-                s.UpdateStrategy();
+                updated = s.UpdateStrategy();
 
             // Chart 1 -- token price & future price
             List<Tuple<string, DateTime, double, bool>> data = new List<Tuple<string, DateTime, double, bool>>();
             data.Add(new Tuple<string, DateTime, double, bool>("Token Price", now, Math.Round(db.TokenPrice, 2), false));
-            //data.Add(new Tuple<string, DateTime, double, bool>("Future Price", now, Math.Round(0.0, 2), false));      // todo
+            foreach (var a in strategies[0].StrategyPortfolio.AssetSizes.Keys)
+            {
+                if (db.Instruments[a].Kind == Org.OpenAPITools.Model.Instrument.KindEnum.Future)
+                    data.Add(new Tuple<string, DateTime, double, bool>("Future Price", now, Math.Round(db[a].CashMid, 2), false));
+                else
+                    data.Add(new Tuple<string, DateTime, double, bool>(a, now, Math.Round(db[a].CashMid, 2), true));
+            }
             AddManyDataPoints(chart1, data, false, SeriesChartType.Line);
 
             // Chart 2 -- historical & implied volatilities
@@ -95,9 +102,52 @@ namespace Mars
 
             // Chart 3 -- strategy portfolio value & delta
             List<Tuple<string, DateTime, double, bool>> data3 = new List<Tuple<string, DateTime, double, bool>>();
-            data3.Add(new Tuple<string, DateTime, double, bool>("Portfolio Value", now, strategies[0].StrategyPortfolio.CurrentPortfolioValue, false));
             data3.Add(new Tuple<string, DateTime, double, bool>("Portfolio Delta", now, strategies[0].StrategyPortfolio.CurrentPortfolioDelta, true));
+            data3.Add(new Tuple<string, DateTime, double, bool>("Portfolio Value", now, strategies[0].StrategyPortfolio.CurrentPortfolioValue, false));
             AddManyDataPoints(chart3, data3, false, SeriesChartType.Line);
+
+            if (updated)
+            {
+                data3.Clear();
+                data3.Add(new Tuple<string, DateTime, double, bool>("Traded", now, strategies[0].StrategyPortfolio.CurrentPortfolioDelta, true));
+                AddManyDataPoints(chart3, data3, false, SeriesChartType.Point);
+            }
+
+            string label4Text = "Portfolio Value: " + string.Format("{0:N2}", strategies[0].StrategyPortfolio.CurrentPortfolioValue) + Environment.NewLine +
+                                "Portfolio Cash: " + string.Format("{0:N2}", strategies[0].StrategyPortfolio.CurrentCash) + Environment.NewLine +
+                                "Portfolio Delta: " + string.Format("{0:F4}", strategies[0].StrategyPortfolio.CurrentPortfolioDelta) + Environment.NewLine +
+                                "Portfolio Gamma: " + string.Format("{0:F4}", strategies[0].StrategyPortfolio.CurrentPortfolioGamma) + Environment.NewLine +
+                                "Portfolio Theta: " + string.Format("{0:F3}", strategies[0].StrategyPortfolio.CurrentPortfolioTheta) + Environment.NewLine +
+                                "Total Commissions: " + string.Format("{0:N2}", strategies[0].StrategyPortfolio.TotalCommissions);
+
+            string label5Text = "Positions: " + Environment.NewLine;
+            string label6Text = "Markets: " + Environment.NewLine;
+            foreach (var a in strategies[0].StrategyPortfolio.AssetSizes)
+            {
+                double currentMid = db[a.Key].CashMid;
+                double currentMtM = a.Value * (currentMid - strategies[0].StrategyPortfolio.AssetPrices[a.Key]);
+                label5Text += Environment.NewLine + a.Key + ": " + string.Format("{0:F3}", a.Value) + "@" +
+                              string.Format("{0:F3}", strategies[0].StrategyPortfolio.AssetPrices[a.Key]) + " = " +
+                              string.Format("{0:N2}", a.Value * strategies[0].StrategyPortfolio.AssetPrices[a.Key]) +
+                              " (" + string.Format("{0:N2}", currentMtM) + ")";
+
+                label6Text += Environment.NewLine + a.Key + ": " + string.Format("{0:F3}", db[a.Key].Bid) + " / " + string.Format("{0:F3}", db[a.Key].Ask);
+            }
+
+            label4.Invoke(new MethodInvoker(delegate
+            {
+                label4.Text = label4Text;
+            }));
+
+            label5.Invoke(new MethodInvoker(delegate
+            {
+                label5.Text = label5Text;
+            }));
+
+            label6.Invoke(new MethodInvoker(delegate
+            {
+                label6.Text = label6Text;
+            }));
         }
 
 

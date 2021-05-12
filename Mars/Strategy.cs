@@ -60,8 +60,10 @@ namespace Mars
             tradedCall = contracts.Item3;
         }
 
-        public void UpdateStrategy()
+        public bool UpdateStrategy()
         {
+            bool ret = false;
+
             double delta = StrategyPortfolio.CurrentPortfolioDelta;
             Debug.WriteLine("Pre - PortfolioValue = " + StrategyPortfolio.CurrentPortfolioValue + "; PortfolioDelta = " + StrategyPortfolio.CurrentPortfolioDelta);
             if (Math.Abs(delta) > DeltaLimit)
@@ -70,9 +72,11 @@ namespace Mars
                 double priceToTrade = Math.Sign(quantityToTrade) > 0 ? MarketDataClient[tradedFuture.InstrumentName].Ask : MarketDataClient[tradedFuture.InstrumentName].Bid;
 
                 StrategyPortfolio.UpdatePortfolioPosition(tradedFuture.InstrumentName, quantityToTrade, priceToTrade, MarketDataClient.TakerCommissions[tradedFuture.InstrumentName]);
+                ret = true;
             }
 
             Debug.WriteLine("Post - PortfolioValue = " + StrategyPortfolio.CurrentPortfolioValue + "; PortfolioDelta = " + StrategyPortfolio.CurrentPortfolioDelta);
+            return ret;
         }
 
         // Find the options that are closest to ATM and tradable and set up the initial position.

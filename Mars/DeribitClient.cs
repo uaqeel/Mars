@@ -150,7 +150,9 @@ namespace Mars
     {
         public DateTime Timestamp { get; set; }
         public double Bid { get; set; }
+        public virtual double CashBid { get { return Bid; } }
         public double Ask { get; set; }
+        public virtual double CashAsk { get { return Ask; } }
         public double Mark { get; set; }
         public double IndexRefPrice { get; set; }
 
@@ -161,6 +163,7 @@ namespace Mars
                 return 0.5 * (Bid + Ask);
             }
         }
+        public virtual double CashMid { get { return Mid; } }
 
         public Market(long timestamp, double index_price, double mark_price, double best_bid_price, double best_ask_price)
         {
@@ -209,7 +212,7 @@ namespace Mars
             MarkVol = (double)JsonObject["mark_iv"];
         }
 
-        public double CashAsk
+        override public double CashAsk
         {
             get
             {
@@ -217,7 +220,7 @@ namespace Mars
             }
         }
 
-        public double CashBid
+        override public double CashBid
         {
             get
             {
@@ -225,7 +228,7 @@ namespace Mars
             }
         }
 
-        public double CashMid
+        override public double CashMid
         {
             get
             {
