@@ -92,7 +92,7 @@ namespace Mars
                                select o;
 
             var selectedMaturity = (from o in tokenOptions
-                                    orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(o.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(90)).TotalSeconds)
+                                    orderby Math.Abs((DateTimeOffset.FromUnixTimeMilliseconds(o.ExpirationTimestamp ?? 0) - DateTime.Now.AddDays(40)).TotalSeconds)
                                     select o.ExpirationTimestamp ?? 0).First();
 
             var closestStrikes = (from o in tokenOptions

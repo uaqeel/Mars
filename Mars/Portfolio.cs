@@ -83,7 +83,7 @@ namespace Mars
                     if (MarketDataClient.Instruments[a.Key].Kind == Org.OpenAPITools.Model.Instrument.KindEnum.Option)
                         value += a.Value * (MarketDataClient[a.Key] as OptionMarket).CashMid;
                     else
-                        value += a.Value * ((MarketDataClient[a.Key] as Market).Mid - AssetPrices[a.Key]);
+                        value += a.Value * (MarketDataClient[a.Key].CashMid - AssetPrices[a.Key]);
                 }
 
                 return value;

@@ -160,7 +160,25 @@ namespace Mars
         {
             get
             {
-                return 0.5 * (Bid + Ask);
+                double ret = 0;
+                if (Bid != 0 && Ask != 0)
+                {
+                    ret = 0.5 * (Bid + Ask);
+                }
+                else if (Bid == 0)
+                {
+                    ret = Ask;
+                }
+                else if (Ask == 0)
+                {
+                    ret = Bid;
+                }
+                else
+                {
+                    ret = Mark;
+                }
+
+                return ret;
             }
         }
         public virtual double CashMid { get { return Mid; } }

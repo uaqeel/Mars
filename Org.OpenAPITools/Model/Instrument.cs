@@ -47,7 +47,13 @@ namespace Org.OpenAPITools.Model
             /// Enum USD for value: BTC
             /// </summary>
             [EnumMember(Value = "BTC")]
-            BTC = 1
+            BTC = 1,
+
+            /// <summary>
+            /// Enum USD for value: ETH
+            /// </summary>
+            [EnumMember(Value = "ETH")]
+            ETH= 2
 
         }
 
