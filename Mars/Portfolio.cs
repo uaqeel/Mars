@@ -40,7 +40,8 @@ namespace Mars
                 AssetSizes[instrumentName] = tradeSize;
                 AssetPrices[instrumentName] = tradePrice;
 
-                CurrentCash -= tradeSize * tradePrice;
+                if (MarketDataClient.Instruments[instrumentName].Kind != Org.OpenAPITools.Model.Instrument.KindEnum.Future)
+                    CurrentCash -= tradeSize * tradePrice;
 
                 // todo(2) - haven't factored in delivery fee
             }
@@ -49,21 +50,21 @@ namespace Mars
                 double existingSize = AssetSizes[instrumentName];
                 double existingPrice = AssetPrices[instrumentName];
 
-                if (existingSize + tradeSize == 0)
+                if (existingSize + tradeSize == 0)                              // Closeout
                 {
                     CurrentCash += tradeSize * (tradePrice - AssetPrices[instrumentName]);
 
                     AssetSizes.Remove(instrumentName);
                     AssetPrices.Remove(instrumentName);
                 }
-                else if (Math.Sign(existingSize) != Math.Sign (tradeSize))
+                else if (Math.Sign(existingSize) != Math.Sign (tradeSize))      // Reversal
                 {
                     CurrentCash += tradeSize * (tradePrice - AssetPrices[instrumentName]);
 
                     AssetSizes[instrumentName] = existingSize + tradeSize;
                     AssetPrices[instrumentName] = tradePrice;
                 }
-                else
+                else                                                            // Addon
                 {
                     AssetSizes[instrumentName] = existingSize + tradeSize;
                     AssetPrices[instrumentName] = (existingSize * AssetPrices[instrumentName] + tradeSize * tradePrice) / (existingSize + tradeSize);
