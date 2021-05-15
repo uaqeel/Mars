@@ -59,7 +59,7 @@ namespace Mars
             tradedPut = contracts.Item2;
             tradedCall = contracts.Item3;
 
-            Trace.Listeners.Add(new TextWriterTraceListener("c:\\temp\\mars_output" + token + ".txt"));
+            Trace.Listeners.Add(new TextWriterTraceListener("c:\\temp\\mars-output-" + token + "-deltalimit-" + deltaLimit + ".txt"));
             Trace.AutoFlush = true;
             Trace.WriteLine("***************************");
             Trace.WriteLine("Timestamp,PortfolioValue,PortfolioCash,TotalCommissions,PortfolioDelta,Future Size,Future Price,Put Size,Put Price,Call Size,Call Price,Future,Put,Call");

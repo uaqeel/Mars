@@ -113,13 +113,13 @@ namespace Mars
                 if (db.Instruments[a].Kind == Org.OpenAPITools.Model.Instrument.KindEnum.Future)
                     data.Add(new Tuple<string, DateTime, double, bool>(a, now, Math.Round(db[a].CashMid, 2), false));
                 else
-                    data.Add(new Tuple<string, DateTime, double, bool>(a, now, Math.Round(db[a].CashMid, 2), true));
+                    data.Add(new Tuple<string, DateTime, double, bool>(a + "(RHS)", now, Math.Round(db[a].CashMid, 2), true));
             }
             AddManyDataPoints(chart1, 0, data, false, SeriesChartType.Line);
 
             // Chart 2 -- strategy portfolio value & delta
             List<Tuple<string, DateTime, double, bool>> data3 = new List<Tuple<string, DateTime, double, bool>>();
-            data3.Add(new Tuple<string, DateTime, double, bool>("Portfolio Delta", now, strategies[0].StrategyPortfolio.CurrentPortfolioDelta, true));
+            data3.Add(new Tuple<string, DateTime, double, bool>("Portfolio Delta (RHS)", now, strategies[0].StrategyPortfolio.CurrentPortfolioDelta, true));
             data3.Add(new Tuple<string, DateTime, double, bool>("Portfolio Value", now, strategies[0].StrategyPortfolio.CurrentPortfolioValue, false));
             AddManyDataPoints(chart1, 1, data3, false, SeriesChartType.Line);
 
@@ -217,7 +217,7 @@ namespace Mars
 
                         if (d.Item4)
                         {
-                            ss.ToolTip = d.Item1 + ": (#VALY2, #VALX)";
+                            ss.ToolTip = d.Item1 + ": (#VALY, #VALX)";
                             ss.YAxisType = AxisType.Secondary;
                         }
                         else
