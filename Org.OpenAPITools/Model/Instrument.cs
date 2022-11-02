@@ -80,7 +80,19 @@ namespace Org.OpenAPITools.Model
             /// Enum Option for value: option
             /// </summary>
             [EnumMember(Value = "option")]
-            Option = 2
+            Option = 2,
+
+            /// <summary>
+            /// Enum Option for value: option combo
+            /// </summary>
+            [EnumMember(Value = "option_combo")]
+            OptionCombo = 3,
+
+            /// <summary>
+            /// Enum Option for value: future combo
+            /// </summary>
+            [EnumMember(Value = "future_combo")]
+            FutureCombo = 4
 
         }
 
