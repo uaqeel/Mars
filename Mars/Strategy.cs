@@ -17,21 +17,21 @@ namespace Mars
         public string Token { get; set; }
         Instrument.BaseCurrencyEnum tokenEnum;
 
-        DeribitClient MarketDataClient { get; set; }
-        
-        public Portfolio StrategyPortfolio {get; set; }
-        double MaxInvestedPercentage { get; set; }
-        double DeltaLimit { get; set; }
+        public DeribitClient MarketDataClient { get; set; }
 
-        private Instrument tradedFuture;
-        private Instrument tradedPut;
-        private Instrument tradedCall;
+        public Portfolio StrategyPortfolio { get; set; }
+        public double MaxInvestedPercentage { get; set; }
+        public double DeltaLimit { get; set; }
+
+        public Instrument tradedFuture;
+        public Instrument tradedPut;
+        public Instrument tradedCall;
 
 
         public Strategy(string token, DeribitClient dbClient, double initialPortfolioValue, double maxInvestedPercentage = 0.50, double deltaLimit = 0.5)
         {
             Token = token;
-            tokenEnum = (Instrument.BaseCurrencyEnum) Enum.Parse(typeof(Instrument.BaseCurrencyEnum), Token);
+            tokenEnum = (Instrument.BaseCurrencyEnum)Enum.Parse(typeof(Instrument.BaseCurrencyEnum), Token);
             MarketDataClient = dbClient;
             StrategyPortfolio = new Portfolio(dbClient, initialPortfolioValue);
             MaxInvestedPercentage = maxInvestedPercentage;
@@ -65,7 +65,7 @@ namespace Mars
             Trace.WriteLine("Timestamp,PortfolioValue,PortfolioCash,TotalCommissions,PortfolioDelta,Future Size,Future Price,Put Size,Put Price,Call Size,Call Price,Future,Put,Call");
         }
 
-        public bool UpdateStrategy()
+        public virtual bool UpdateStrategy()
         {
             bool ret = false;
 
@@ -89,28 +89,28 @@ namespace Mars
 
             if (Math.Abs(delta) > DeltaLimit)
             {
-                double quantityToTrade = Math.Sign(delta) * (0.5 * DeltaLimit - Math.Abs(delta));         // todo - should i do this scaled to portfolio size?
+                double quantityToTrade = Math.Sign(delta) * (0.5 * DeltaLimit - Math.Abs(delta));
                 double priceToTrade = Math.Sign(quantityToTrade) > 0 ? MarketDataClient[tradedFuture.InstrumentName].Ask : MarketDataClient[tradedFuture.InstrumentName].Bid;
 
                 StrategyPortfolio.UpdatePortfolioPosition(tradedFuture.InstrumentName, quantityToTrade, priceToTrade, MarketDataClient.TakerCommissions[tradedFuture.InstrumentName]);
                 ret = true;
-            }
 
-            Trace.WriteLine(string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13}",
-                                        DateTime.Now.ToString(),
-                                        StrategyPortfolio.CurrentPortfolioValue,
-                                        StrategyPortfolio.CurrentCash,
-                                        StrategyPortfolio.TotalCommissions,
-                                        StrategyPortfolio.CurrentPortfolioDelta,
-                                        StrategyPortfolio.AssetSizes.ContainsKey(tradedFuture.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedFuture.InstrumentName] : 0,
-                                        StrategyPortfolio.AssetPrices.ContainsKey(tradedFuture.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedFuture.InstrumentName] : 0,
-                                        StrategyPortfolio.AssetSizes.ContainsKey(tradedPut.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedPut.InstrumentName] : 0,
-                                        StrategyPortfolio.AssetPrices.ContainsKey(tradedPut.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedPut.InstrumentName] : 0,
-                                        StrategyPortfolio.AssetSizes.ContainsKey(tradedCall.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedCall.InstrumentName] : 0,
-                                        StrategyPortfolio.AssetPrices.ContainsKey(tradedCall.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedCall.InstrumentName] : 0,
-                                        MarketDataClient[tradedFuture.InstrumentName].CashMid,
-                                        MarketDataClient[tradedPut.InstrumentName].CashMid,
-                                        MarketDataClient[tradedCall.InstrumentName].CashMid));
+                Trace.WriteLine(string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},TRADED",
+                            DateTime.Now.ToString(),
+                            StrategyPortfolio.CurrentPortfolioValue,
+                            StrategyPortfolio.CurrentCash,
+                            StrategyPortfolio.TotalCommissions,
+                            StrategyPortfolio.CurrentPortfolioDelta,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedFuture.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedFuture.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedFuture.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedFuture.InstrumentName] : 0,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedPut.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedPut.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedPut.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedPut.InstrumentName] : 0,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedCall.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedCall.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedCall.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedCall.InstrumentName] : 0,
+                            MarketDataClient[tradedFuture.InstrumentName].CashMid,
+                            MarketDataClient[tradedPut.InstrumentName].CashMid,
+                            MarketDataClient[tradedCall.InstrumentName].CashMid));
+            }
 
             Trace.Flush();
 
@@ -172,6 +172,82 @@ namespace Mars
             MarketDataClient.AddContracts(futs);
 
             return new Tuple<Instrument, Instrument, Instrument>(selectedFuture, selectedPut, selectedCall);
+        }
+    }
+
+    internal class TrailingTakeProfitStrategy : Strategy
+    {
+        public double HighWaterDelta { get; set; }
+        public double TrailingLimit { get; set; }
+
+        public TrailingTakeProfitStrategy(string token, DeribitClient dbClient, double initialPortfolioValue, double maxInvestedPercentage = 0.50, double deltaLimit = 0.5, double trailingLimit = 0.025)
+            : base(token,dbClient,initialPortfolioValue,maxInvestedPercentage,deltaLimit)
+        {
+            HighWaterDelta = 0;
+            TrailingLimit = trailingLimit;
+        }
+
+        public override bool UpdateStrategy()
+        {
+            bool ret = false;
+
+            double currentDelta = StrategyPortfolio.CurrentPortfolioDelta;
+
+            if (Math.Abs(currentDelta) > Math.Abs(HighWaterDelta) && currentDelta * HighWaterDelta >= 0)
+            {
+                HighWaterDelta = currentDelta;
+            }
+            else if (currentDelta * HighWaterDelta < 0)
+            {
+                HighWaterDelta = currentDelta;
+            }
+
+            Trace.WriteLine(string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13}",
+                            DateTime.Now.ToString(),
+                            StrategyPortfolio.CurrentPortfolioValue,
+                            StrategyPortfolio.CurrentCash,
+                            StrategyPortfolio.TotalCommissions,
+                            StrategyPortfolio.CurrentPortfolioDelta,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedFuture.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedFuture.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedFuture.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedFuture.InstrumentName] : 0,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedPut.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedPut.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedPut.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedPut.InstrumentName] : 0,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedCall.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedCall.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedCall.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedCall.InstrumentName] : 0,
+                            MarketDataClient[tradedFuture.InstrumentName].CashMid,
+                            MarketDataClient[tradedPut.InstrumentName].CashMid,
+                            MarketDataClient[tradedCall.InstrumentName].CashMid));
+
+            double limit = HighWaterDelta - Math.Sign(HighWaterDelta) * TrailingLimit;
+            if (Math.Abs(currentDelta) < Math.Abs(limit) & Math.Abs(HighWaterDelta) > DeltaLimit * 0.5) {
+                double quantityToTrade = Math.Sign(currentDelta) * (0.5 * Math.Min(DeltaLimit, Math.Abs(currentDelta)) - Math.Abs(currentDelta));
+                double priceToTrade = Math.Sign(quantityToTrade) > 0 ? MarketDataClient[tradedFuture.InstrumentName].Ask : MarketDataClient[tradedFuture.InstrumentName].Bid;
+
+                StrategyPortfolio.UpdatePortfolioPosition(tradedFuture.InstrumentName, quantityToTrade, priceToTrade, MarketDataClient.TakerCommissions[tradedFuture.InstrumentName]);
+                ret = true;
+
+                Trace.WriteLine(string.Format("{0},{1},{2},{3},{4},{5},{6},{7},{8},{9},{10},{11},{12},{13},TRADED",
+                            DateTime.Now.ToString(),
+                            StrategyPortfolio.CurrentPortfolioValue,
+                            StrategyPortfolio.CurrentCash,
+                            StrategyPortfolio.TotalCommissions,
+                            StrategyPortfolio.CurrentPortfolioDelta,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedFuture.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedFuture.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedFuture.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedFuture.InstrumentName] : 0,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedPut.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedPut.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedPut.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedPut.InstrumentName] : 0,
+                            StrategyPortfolio.AssetSizes.ContainsKey(tradedCall.InstrumentName) ? StrategyPortfolio.AssetSizes[tradedCall.InstrumentName] : 0,
+                            StrategyPortfolio.AssetPrices.ContainsKey(tradedCall.InstrumentName) ? StrategyPortfolio.AssetPrices[tradedCall.InstrumentName] : 0,
+                            MarketDataClient[tradedFuture.InstrumentName].CashMid,
+                            MarketDataClient[tradedPut.InstrumentName].CashMid,
+                            MarketDataClient[tradedCall.InstrumentName].CashMid));
+
+                HighWaterDelta = StrategyPortfolio.CurrentPortfolioDelta;
+            }
+
+            Trace.Flush();
+
+            return ret;
         }
     }
 }
